@@ -81,6 +81,24 @@ where:{ factoryId }
 });
 
 /* ===============================
+OPERATIONAL ALERTS
+=============================== */
+
+const alerts:string[] = [];
+
+if (averageYield < 85) {
+alerts.push("⚠ Yield efficiency below safe threshold (85%)");
+}
+
+if (totalWaste > totalOutput * 0.15) {
+alerts.push("⚠ Waste above acceptable limit (15%)");
+}
+
+if (inventory && inventory.rawStock < 50) {
+alerts.push("⚠ Raw material stock running low");
+}
+
+/* ===============================
 7 DAY TREND
 =============================== */
 
@@ -161,13 +179,23 @@ Logout
 
 </div>
 
-{/* ALERT */}
+{/* ALERT PANEL */}
 
-{isLowYield && (
+{alerts.length > 0 && (
 
-<div className="bg-red-600 p-4 rounded-xl mb-6 font-semibold">
+<div className="bg-red-600 p-4 rounded-xl mb-6">
 
-⚠️ ALERT: Yield below 85%! Profit leakage risk.
+<h2 className="font-semibold mb-2">
+Operational Alerts
+</h2>
+
+<ul className="list-disc ml-6">
+
+{alerts.map((alert,i)=>(
+<li key={i}>{alert}</li>
+))}
+
+</ul>
 
 </div>
 
@@ -316,13 +344,9 @@ color:"blue"|"green"|"red"|"purple"|"yellow"
 const colorMap = {
 
 blue:"from-blue-600 to-blue-800",
-
 green:"from-green-600 to-green-800",
-
 red:"from-red-600 to-red-800",
-
 purple:"from-purple-600 to-purple-800",
-
 yellow:"from-yellow-500 to-yellow-700 text-black"
 
 };
@@ -332,15 +356,11 @@ return(
 <div className={`p-8 rounded-2xl shadow-xl bg-gradient-to-br ${colorMap[color]}`}>
 
 <p className="text-sm opacity-90 mb-2">
-
 {title}
-
 </p>
 
 <h2 className="text-4xl font-bold">
-
 {value}
-
 </h2>
 
 </div>
