@@ -4,11 +4,21 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   try {
-    const { name, email, password, factoryName } = await req.json();
+    const { email, password, name } = await req.json();
 
-    if (!name || !email || !password || !factoryName) {
+    if (!email || !password) {
       return NextResponse.json(
-        { error: "All fields required" },
+        { error: "Missing fields" },
+        { status: 400 }
+      );
+    }
+
+    // Get ANY factory (temporary logic)
+    const factory = await prisma.factory.findFirst();
+
+    if (!factory) {
+      return NextResponse.json(
+        { error: "No factory exists" },
         { status: 400 }
       );
     }
@@ -26,42 +36,26 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create factory
-    const factory = await prisma.factory.create({
-      data: {
-        name: factoryName,
-      },
-    });
-
-    // Create inventory for factory
-    await prisma.inventory.create({
-      data: {
-        factoryId: factory.id,
-        rawStock: 0,
-        finishedStock: 0,
-      },
-    });
-
-    // Create owner user
     const user = await prisma.user.create({
       data: {
-        name,
         email,
         password: hashedPassword,
-        role: "OWNER",
-        factoryId: factory.id,
+        name,
+        role: "ADMIN",
+        factoryId: factory.id, // 🔥 CRITICAL
       },
     });
 
     return NextResponse.json({
-      message: "Factory and Owner created successfully",
+      message: "User created",
+      user,
     });
 
   } catch (error) {
+    console.error("REGISTER ERROR:", error);
     return NextResponse.json(
-      { error: "Something went wrong" },
+      { error: "Registration failed" },
       { status: 500 }
     );
   }
 }
-

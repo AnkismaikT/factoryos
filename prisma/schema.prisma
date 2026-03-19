@@ -3,73 +3,77 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // change to "sqlite" if you are using sqlite
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id         String   @id @default(uuid())
-  name       String
-  email      String   @unique
-  password   String
-  role       Role     @default(OWNER)
-  factory    Factory  @relation(fields: [factoryId], references: [id])
-  factoryId  String
-  createdAt  DateTime @default(now())
-}
-
-model Factory {
-  id          String        @id @default(uuid())
+model factory {
+  id          Int          @id @default(autoincrement())
   name        String
-  location    String?
-  users       User[]
-  productions Production[]
-  inventory   Inventory?
-  dispatches  Dispatch[]
-  createdAt   DateTime      @default(now())
+
+  users       user[]
+  productions production[]
+  dispatches  dispatch[]
+  inventories inventory[]
+
+  createdAt   DateTime     @default(now())
 }
 
-model Production {
-  id         String   @id @default(uuid())
-  factory    Factory  @relation(fields: [factoryId], references: [id])
-  factoryId  String
-  date       DateTime
-  rawInput   Float
-  output     Float
-  waste      Float
-  yield      Float
-  createdBy  String
-  createdAt  DateTime @default(now())
+model user {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      String
+
+  factoryId Int
+  factory   factory  @relation(fields: [factoryId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
-model Inventory {
-  id            String   @id @default(uuid())
-  factory       Factory  @relation(fields: [factoryId], references: [id])
-  factoryId     String   @unique
-  rawStock      Float    @default(0)
-  finishedStock Float    @default(0)
-  updatedAt     DateTime @updatedAt
+model production {
+  id        Int      @id @default(autoincrement())
+
+  product   String?
+  rawInput  Int
+  output    Int
+  waste     Int
+  yield     Decimal? @db.Decimal(5,2)
+
+  operator  String?
+  date      DateTime @default(now())
+
+  factoryId Int
+  factory   factory  @relation(fields: [factoryId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
-model Dispatch {
-  id         String          @id @default(uuid())
-  factory    Factory         @relation(fields: [factoryId], references: [id])
-  factoryId  String
-  customer   String
-  quantity   Float
-  status     DispatchStatus  @default(PENDING)
-  createdBy  String
-  createdAt  DateTime        @default(now())
+model dispatch {
+  id        Int      @id @default(autoincrement())
+
+  product   String
+  quantity  Int
+  customer  String?
+
+  factoryId Int
+  factory   factory  @relation(fields: [factoryId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
-enum Role {
-  OWNER
-  MANAGER
-  OPERATOR
-}
+model inventory {
+  id        Int      @id @default(autoincrement())
 
-enum DispatchStatus {
-  PENDING
-  DISPATCHED
-}
+  material  String
+  stock     Int
+  unit      String   @default("kg")
+  minStock  Int      @default(30)
 
+  factoryId Int
+  factory   factory  @relation(fields: [factoryId], references: [id])
+
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+}

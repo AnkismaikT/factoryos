@@ -41,13 +41,13 @@ today.setHours(0,0,0,0);
 const productionsToday = await prisma.production.findMany({
 where:{
 factoryId,
-createdAt:{ gte: today }
+date:{ gte: today }   // ✅ FIXED
 }
 });
 
-const totalRaw = productionsToday.reduce((s,p)=> s+p.rawInput,0);
-const totalOutput = productionsToday.reduce((s,p)=> s+p.output,0);
-const totalWaste = productionsToday.reduce((s,p)=> s+p.waste,0);
+const totalRaw = productionsToday.reduce((s,p)=> s+(p.rawInput || 0),0);
+const totalOutput = productionsToday.reduce((s,p)=> s+(p.output || 0),0);
+const totalWaste = productionsToday.reduce((s,p)=> s+(p.waste || 0),0);
 
 const averageYield =
 totalRaw > 0
@@ -76,8 +76,8 @@ totalRevenue > 0
 INVENTORY
 =============================== */
 
-const inventory = await prisma.inventory.findUnique({
-where:{ factoryId }
+const inventory = await prisma.inventory.findFirst({
+where:{ factoryId }   // ✅ FIXED
 });
 
 /* ===============================
@@ -94,7 +94,7 @@ if (totalWaste > totalOutput * 0.15) {
 alerts.push("⚠ Waste above acceptable limit (15%)");
 }
 
-if (inventory && inventory.rawStock < 50) {
+if (inventory && inventory.stock < 50) {   // ✅ FIXED
 alerts.push("⚠ Raw material stock running low");
 }
 
@@ -109,20 +109,20 @@ sevenDaysAgo.setHours(0,0,0,0);
 const last7Days = await prisma.production.findMany({
 where:{
 factoryId,
-createdAt:{ gte: sevenDaysAgo }
+date:{ gte: sevenDaysAgo }   // ✅ FIXED
 },
-orderBy:{ createdAt:"asc" }
+orderBy:{ date:"asc" }       // ✅ FIXED
 });
 
 const dailyMap: Record<string,{raw:number,output:number}> = {};
 
 last7Days.forEach(p=>{
-const day = new Date(p.createdAt).toLocaleDateString();
+const day = new Date(p.date!).toLocaleDateString();
 
 if(!dailyMap[day]) dailyMap[day]={raw:0,output:0};
 
-dailyMap[day].raw += p.rawInput;
-dailyMap[day].output += p.output;
+dailyMap[day].raw += p.rawInput || 0;
+dailyMap[day].output += p.output || 0;
 });
 
 const trendData = Object.entries(dailyMap).map(([date,val])=>({
@@ -139,13 +139,13 @@ ANALYTICS CHART DATA
 
 const chartData = last7Days.map(p => ({
 
-date: new Date(p.createdAt).toLocaleDateString(),
+date: new Date(p.date!).toLocaleDateString(),
 
-output: p.output,
+output: p.output || 0,
 
-waste: p.waste,
+waste: p.waste || 0,
 
-profit: (p.output * SELL_PRICE_PER_TON) - (p.rawInput * RAW_COST_PER_TON)
+profit: ( (p.output || 0) * SELL_PRICE_PER_TON ) - ( (p.rawInput || 0) * RAW_COST_PER_TON )
 
 }));
 
@@ -205,23 +205,9 @@ Operational Alerts
 
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-<GradientCard
-title="Yield Efficiency"
-value={`${averageYield}%`}
-color={isLowYield ? "red" : "green"}
-/>
-
-<GradientCard
-title="Gross Profit Today"
-value={`₹ ${grossProfit.toLocaleString()}`}
-color={grossProfit >=0 ? "green" : "red"}
-/>
-
-<GradientCard
-title="Profit Margin"
-value={`${profitMargin}%`}
-color={profitMargin >=20 ? "green":"red"}
-/>
+<GradientCard title="Yield Efficiency" value={`${averageYield}%`} color={isLowYield ? "red" : "green"} />
+<GradientCard title="Gross Profit Today" value={`₹ ${grossProfit.toLocaleString()}`} color={grossProfit >=0 ? "green" : "red"} />
+<GradientCard title="Profit Margin" value={`${profitMargin}%`} color={profitMargin >=20 ? "green":"red"} />
 
 </div>
 
@@ -229,23 +215,9 @@ color={profitMargin >=20 ? "green":"red"}
 
 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
 
-<GradientCard
-title="Today's Output"
-value={`${totalOutput} Tons`}
-color="blue"
-/>
-
-<GradientCard
-title="Raw Stock Remaining"
-value={`${inventory?.rawStock ?? 0} Tons`}
-color="purple"
-/>
-
-<GradientCard
-title="Today's Waste"
-value={`${totalWaste} Tons`}
-color="yellow"
-/>
+<GradientCard title="Today's Output" value={`${totalOutput} Tons`} color="blue" />
+<GradientCard title="Raw Stock Remaining" value={`${inventory?.stock ?? 0} Tons`} color="purple" />
+<GradientCard title="Today's Waste" value={`${totalWaste} Tons`} color="yellow" />
 
 </div>
 
@@ -258,15 +230,9 @@ color="yellow"
 </h2>
 
 {trendData.length === 0 ? (
-
-<p className="text-gray-400">
-Not enough data for trend analysis.
-</p>
-
+<p className="text-gray-400">Not enough data for trend analysis.</p>
 ) : (
-
 <YieldChart data={trendData} />
-
 )}
 
 </div>
@@ -274,25 +240,15 @@ Not enough data for trend analysis.
 {/* PRODUCTION VS WASTE */}
 
 <div className="bg-gray-900 p-6 rounded-2xl shadow-lg mb-12">
-
-<h2 className="text-xl font-semibold mb-4">
-Production vs Waste
-</h2>
-
+<h2 className="text-xl font-semibold mb-4">Production vs Waste</h2>
 <ProductionWasteChart data={chartData} />
-
 </div>
 
 {/* PROFIT TREND */}
 
 <div className="bg-gray-900 p-6 rounded-2xl shadow-lg mb-12">
-
-<h2 className="text-xl font-semibold mb-4">
-Profit Trend
-</h2>
-
+<h2 className="text-xl font-semibold mb-4">Profit Trend</h2>
 <ProfitChart data={chartData} />
-
 </div>
 
 {/* FINANCIAL */}
@@ -300,23 +256,15 @@ Profit Trend
 <div className="bg-gray-900 p-6 rounded-2xl shadow-lg">
 
 <h2 className="text-xl font-semibold mb-4">
-
 Financial Breakdown (Today)
-
 </h2>
 
 <div className="space-y-2 text-gray-300">
-
 <p>Total Raw Cost: ₹ {totalRawCost.toLocaleString()}</p>
-
 <p>Total Revenue: ₹ {totalRevenue.toLocaleString()}</p>
-
 <p className="font-bold text-white">
-
 Gross Profit: ₹ {grossProfit.toLocaleString()}
-
 </p>
-
 </div>
 
 </div>
@@ -331,40 +279,20 @@ Gross Profit: ₹ {grossProfit.toLocaleString()}
 KPI CARD
 =============================== */
 
-function GradientCard({
-title,
-value,
-color
-}:{
-title:string
-value:string
-color:"blue"|"green"|"red"|"purple"|"yellow"
-}){
+function GradientCard({ title, value, color }: any){
 
 const colorMap = {
-
 blue:"from-blue-600 to-blue-800",
 green:"from-green-600 to-green-800",
 red:"from-red-600 to-red-800",
 purple:"from-purple-600 to-purple-800",
 yellow:"from-yellow-500 to-yellow-700 text-black"
-
 };
 
 return(
-
 <div className={`p-8 rounded-2xl shadow-xl bg-gradient-to-br ${colorMap[color]}`}>
-
-<p className="text-sm opacity-90 mb-2">
-{title}
-</p>
-
-<h2 className="text-4xl font-bold">
-{value}
-</h2>
-
+<p className="text-sm opacity-90 mb-2">{title}</p>
+<h2 className="text-4xl font-bold">{value}</h2>
 </div>
-
 );
-
 }
