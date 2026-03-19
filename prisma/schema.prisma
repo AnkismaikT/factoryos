@@ -39,10 +39,21 @@ model production {
   rawInput  Int
   output    Int
   waste     Int
-  yield     Decimal? @db.Decimal(5,2)
+
+  yield     Float?
 
   operator  String?
+  machine   String?
+  shift     String?
+  notes     String?
+
   date      DateTime @default(now())
+
+  totalCost Float?
+  profit    Float?
+
+  // 🔥 ADDED (YOUR FIX)
+  remainingQuantity Int?
 
   factoryId Int
   factory   factory  @relation(fields: [factoryId], references: [id])

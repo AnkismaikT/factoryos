@@ -3,9 +3,7 @@ import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
 
 export async function POST(req: Request) {
-
   try {
-
     console.log("📥 Incoming production request");
 
     const body = await req.json();
@@ -15,18 +13,15 @@ export async function POST(req: Request) {
     const waste = Number(body.waste);
 
     if (isNaN(rawInput) || isNaN(output) || isNaN(waste)) {
-
       return new Response(
         JSON.stringify({ error: "Invalid numeric values" }),
         { status: 400 }
       );
-
     }
 
     /* ===============================
        CALCULATE YIELD
     =============================== */
-
     const yieldValue =
       rawInput > 0
         ? Number(((output / rawInput) * 100).toFixed(2))
@@ -35,20 +30,17 @@ export async function POST(req: Request) {
     /* ===============================
        CALCULATE COST
     =============================== */
-
     const RAW_COST_PER_TON = 3000;
     const totalCost = rawInput * RAW_COST_PER_TON;
 
     /* ===============================
        CALCULATE REMAINING QUANTITY
     =============================== */
-
-    const remainingQuantity = rawInput - output;
+    const remainingQuantity = output; // ✅ FIXED
 
     /* ===============================
        AUTHENTICATION
     =============================== */
-
     const cookieStore = await cookies();
     const token = cookieStore.get("token")?.value;
 
@@ -59,79 +51,59 @@ export async function POST(req: Request) {
     const decoded: any = verifyToken(token);
 
     const factoryId = decoded.factoryId;
-    const userId = decoded.userId;
 
     /* ===============================
        CREATE PRODUCTION RECORD
     =============================== */
-
     const production = await prisma.production.create({
-
       data: {
-
         factoryId: factoryId,
-
         date: new Date(),
 
         rawInput: rawInput,
-
         output: output,
-
         waste: waste,
 
         yield: yieldValue,
-
         totalCost: totalCost,
-
         remainingQuantity: remainingQuantity,
-
-        createdBy: userId
-
-      }
-
+      },
     });
 
     /* ===============================
-       UPDATE INVENTORY
+       UPDATE INVENTORY (SAFE VERSION)
     =============================== */
 
-    await prisma.inventory.update({
-
+    // find inventory record
+    const inventory = await prisma.inventory.findFirst({
       where: { factoryId: factoryId },
-
-      data: {
-
-        rawStock: {
-          decrement: rawInput
-        },
-
-        finishedStock: {
-          increment: output
-        }
-
-      }
-
     });
+
+    if (inventory) {
+      await prisma.inventory.update({
+        where: { id: inventory.id },
+        data: {
+          stock: {
+            increment: output, // ✅ only valid field
+          },
+        },
+      });
+    }
 
     console.log("✅ Production + Inventory updated");
 
-    return new Response(
-      JSON.stringify(production),
-      { status: 200 }
-    );
-
+    return new Response(JSON.stringify(production), {
+      status: 200,
+    });
   } catch (error: any) {
-
     console.error("🔥 SERVER ERROR:", error);
 
     return new Response(
       JSON.stringify({
         error: "Server error",
-        message: error.message
+        message: error.message,
       }),
       { status: 500 }
     );
-
   }
-
 }
